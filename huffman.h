@@ -12,7 +12,7 @@ struct huff_node {
   huff_node_t *left, *right;
 };
 
-typedef void (*huff_node_func)(huff_node_t*);
+typedef void (*huff_node_func)(huff_node_t *);
 
 // Construct a frequency table
 uint64_t *count_freqs(FILE *);
@@ -21,7 +21,7 @@ uint64_t *count_freqs(FILE *);
 huff_node_t *build_huff_tree(uint64_t *);
 
 // Apply func to nodes in order 
-void inorder_traverse(huff_node_t*, huff_node_func);
+void inorder_traverse(huff_node_t *, huff_node_func);
 
 static inline huff_node_t *new_huff_node() {
   huff_node_t *n = malloc(sizeof(huff_node_t));

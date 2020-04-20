@@ -54,7 +54,7 @@ void inorder_traverse(huff_node_t * root, huff_node_func fn) {
   if (root) {
     inorder_traverse(root->left, fn);
     if (root->symb != INTERNAL_NODE)
-        fn(root);
+      fn(root);
     inorder_traverse(root->right, fn);
   }
 }
