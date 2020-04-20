@@ -16,3 +16,6 @@ main.o: main.c
 
 clean:
 	rm -f huffman $(OBJECTS) *~
+
+format:
+	find *.c *.h utils/*.c utils/*.h | xargs indent -par -br -brf -brs -kr -ci2 -cli2 -i2 -l80 -nut
