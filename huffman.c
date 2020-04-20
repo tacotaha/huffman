@@ -7,10 +7,10 @@
 
 uint64_t *count_freqs(FILE * fp) {
   char c;
-  uint64_t *freqs = malloc(256 * sizeof(uint64_t));
+  uint64_t *freqs = malloc(NUM_SYMBS * sizeof(uint64_t));
 
   if (freqs) {
-    memset(freqs, 0, 256 * sizeof(uint64_t));
+    memset(freqs, 0, NUM_SYMBS * sizeof(uint64_t));
     while ((c = fgetc(fp)) != EOF)
       ++freqs[(int) c];
   }
@@ -18,36 +18,46 @@ uint64_t *count_freqs(FILE * fp) {
   return freqs;
 }
 
-huff_node_t *build_huff_tree(uint64_t * freqs) {
-  huff_node_t *left, *right, *new;
-  pqueue_t *pq = pqueue_init();
+huff_node_t *build_huff_tree(pqueue_t * pq) {
+  huff_node_t *left, *right, *new = NULL;
 
-  // enqueue all leaf nodes 
-  for (int i = 0; i < 256; ++i) {
-    huff_node_t *n = new_huff_node();
-    n->symb = i;
-    n->freq = freqs[i];
-    n->left = n->right = NULL;
-    pqueue_insert(pq, i, n);
-  }
+  if (pq)
+    while (pq->size > 1) {
+      left = pqueue_front(pq);
+      pqueue_pop(pq);
 
-  while (pq->size > 1) {
-    left = pqueue_front(pq);
-    pqueue_pop(pq);
+      right = pqueue_front(pq);
+      pqueue_pop(pq);
 
-    right = pqueue_front(pq);
-    pqueue_pop(pq);
+      new = new_huff_node();
+      new->freq = left->freq + right->freq;
+      new->symb = INTERNAL_NODE;
+      new->left = left;
+      new->right = right;
+      new->parent = NULL;
 
-    new = new_huff_node();
-    new->freq = left->freq + right->freq;
-    new->symb = INTERNAL_NODE;
-    new->left = left;
-    new->right = right;
-
-    pqueue_insert(pq, new->freq, new);
-  }
+      left->parent = right->parent = new;
+      pqueue_insert(pq, new->freq, new);
+    }
 
   return new;
+}
+
+uint32_t get_huff_code(huff_node_t * leaf, uint32_t * len) {
+  uint32_t code = 0, num_bits = 0;
+  huff_node_t *child = NULL;
+
+  // bottom-up traversal
+  while (leaf) {
+    child = leaf;
+    leaf = leaf->parent;
+    if (leaf)
+      code |= ((child == leaf->right) << num_bits++);
+  }
+
+  if (len)
+    *len = num_bits;
+  return code;
 }
 
 void inorder_traverse(huff_node_t * root, huff_node_func fn) {
