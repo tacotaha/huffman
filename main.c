@@ -9,7 +9,9 @@ void print_bit_pattern(uint32_t bits, uint32_t len) {
 }
 
 int main(int argc, char **argv) {
-  uint32_t code, num_bits;
+  uint64_t code;
+  size_t num_bits;
+
   FILE *fp = fopen("../huckfinn.txt", "rb");
   pqueue_t *pq = pqueue_init();
   huff_node_t *n, *root, *leaves[NUM_SYMBS];
@@ -38,15 +40,15 @@ int main(int argc, char **argv) {
   // Build the huffman tree
   root = build_huff_tree(pq);
 
-  for (int i = 0; i < NUM_SYMBS; ++i) {
-    if (freqs[i]) {
-      print_huff_node(leaves[i]);
-      printf(" -> ");
-      code = get_huff_code(leaves[i], &num_bits);
-      print_bit_pattern(code, num_bits);
-      printf(" -> %d\n", code);
-    }
+  fp = fopen("../huckfinn.txt", "rb");
+  int c;
+
+  while ((c = fgetc(fp)) != EOF) {
+    code = get_huff_code(leaves[c], &num_bits);
+    print_bit_pattern(code, num_bits);
   }
+  printf("\n");
+
   free(freqs);
   fclose(fp);
   return 0;

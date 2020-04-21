@@ -43,8 +43,9 @@ huff_node_t *build_huff_tree(pqueue_t * pq) {
   return new;
 }
 
-uint32_t get_huff_code(huff_node_t * leaf, uint32_t * len) {
-  uint32_t code = 0, num_bits = 0;
+uint64_t get_huff_code(huff_node_t * leaf, size_t *len) {
+  uint64_t code = 0;
+  size_t num_bits = 0;
   huff_node_t *child = NULL;
 
   // bottom-up traversal

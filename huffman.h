@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "utils/pqueue.h"
 
-#define NUM_SYMBS 127
+#define NUM_SYMBS 256
 #define INTERNAL_NODE (NUM_SYMBS + 1)
 
 typedef struct huff_node huff_node_t;
@@ -37,7 +37,7 @@ uint64_t *count_freqs(FILE *);
 huff_node_t *build_huff_tree(pqueue_t *);
 
 // bottom-up traversal to generate code 
-uint32_t get_huff_code(huff_node_t *, uint32_t *);
+uint64_t get_huff_code(huff_node_t *, size_t *);
 
 // apply func to nodes in order 
 void inorder_traverse(huff_node_t *, huff_node_func);
