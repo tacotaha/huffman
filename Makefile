@@ -1,9 +1,12 @@
 CC = gcc
 CFLAGS = -Wall -g
-OBJECTS = pqueue.o huffman.o main.o
+OBJECTS = bitio.o pqueue.o huffman.o main.o
 
 huffman: $(OBJECTS) 
 	$(CC) $(CFLAGS) -o huffman $(OBJECTS)
+
+bitio.o: utils/bitio.c utils/bitio.h
+	$(CC) $(CFLAGS) -c utils/bitio.c -o bitio.o
 
 pqueue.o: utils/pqueue.c utils/pqueue.h
 	$(CC) $(CFLAGS) -c utils/pqueue.c -o pqueue.o
