@@ -14,6 +14,11 @@ struct huff_node {
   huff_node_t *parent, *left, *right;
 };
 
+typedef struct huff_code {
+  uint64_t code;
+  uint32_t len;
+} huff_code_t;
+
 typedef void (*huff_node_func)(huff_node_t *);
 
 static inline huff_node_t *new_huff_node() {
@@ -25,10 +30,16 @@ static inline huff_node_t *new_huff_node() {
   return n;
 }
 
-static inline void print_huff_node(huff_node_t * node) {
-  if (node)
-    printf("char: %d -> freq: %ld", node->symb, node->freq);
+static void print_bit_pattern(uint32_t bits, uint32_t len) {
+  for (int i = len - 1; i >= 0; --i)
+    printf("%d", (bits >> i) & 1);
 }
+
+// encode file contents
+int encode(const char *, const char *);
+
+// decode a file
+int decode(const char *);
 
 // construct a frequency table
 uint64_t *count_freqs(FILE *);
@@ -37,9 +48,15 @@ uint64_t *count_freqs(FILE *);
 huff_node_t *build_huff_tree(pqueue_t *);
 
 // bottom-up traversal to generate code 
-uint64_t get_huff_code(huff_node_t *, size_t *);
+uint64_t get_huff_code(huff_node_t *, uint32_t *);
 
-// apply func to nodes in order 
-void inorder_traverse(huff_node_t *, huff_node_func);
+// build the huffman code table
+huff_code_t *build_huff_table(huff_node_t **);
+
+// write out file header
+void write_header(FILE *, huff_code_t *);
+
+// parse the file header
+huff_code_t *read_header(FILE *, uint32_t *);
 
 #endif                          /* HUFFMAN_H */
