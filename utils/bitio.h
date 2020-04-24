@@ -7,13 +7,15 @@
 #define BUF_MAX 8
 #define BEOF -1
 
-typedef enum Mode { READ, WRITE, APPEND } MODE;
-extern const char *Modes[3];
+typedef enum Mode { READ, WRITE } MODE;
 
 typedef struct bitio {
   FILE *fp;
+  MODE mode;
   uint8_t buff;
-  uint8_t buff_len;
+  uint8_t buff_ptr;
+  uint8_t buff_max;
+  int eof:1;
 } bitio_t;
 
 // 1 for little endian, 0 for big
@@ -22,8 +24,17 @@ static inline int endianness() {
   return (int) (((char *) &x)[0]);
 }
 
+static inline void print_bits(uint8_t bits) {
+  for (int i = 7; i >= 0; --i)
+    printf("%d", (bits >> i) & 1);
+  printf(" ");
+}
+
 // open a file for reading or writing
 bitio_t *bopen(const char *, MODE);
+
+// bopen with an existing stream
+bitio_t *bopen_f(FILE *, MODE);
 
 // write a bit to the file
 int bwrite(bitio_t *, int);
