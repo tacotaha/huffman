@@ -53,6 +53,7 @@ void pqueue_pop(pqueue_t * pq) {
     // swap first & last elements
     Node *temp = pq->data[pq->size - 1];
     pq->data[pq->size - 1] = pq->data[0];
+    free(pq->data[0]);
     pq->data[0] = temp;
 
     // "remove" the last element
@@ -72,9 +73,8 @@ int pqueue_empty(const pqueue_t * pq) {
 }
 
 void pqueue_destroy(pqueue_t ** pq) {
-  for (int i = 0; i < (*pq)->capacity; i++)
+  for (int i = 0; i < (*pq)->size; i++)
     free((*pq)->data[i]);
-
   free((*pq)->data);
   free(*pq);
   *pq = NULL;

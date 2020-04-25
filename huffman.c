@@ -11,7 +11,7 @@ size_t encode(const char *in, const char *out) {
   int c;
   bitio_t *b;
   huff_code_t code;
-  huff_node_t **leaves;
+  huff_node_t *root, **leaves;
   size_t bytes_encoded = 0;
   FILE *fout, *fp = fopen(in, "rb");
 
@@ -23,7 +23,7 @@ size_t encode(const char *in, const char *out) {
   uint64_t *freqs = count_freqs(fp);
 
   // build the huffman tree
-  build_huff_tree(freqs, &leaves);
+  root = build_huff_tree(freqs, &leaves);
 
   rewind(fp);
 
@@ -43,9 +43,12 @@ size_t encode(const char *in, const char *out) {
     ++bytes_encoded;
   }
 
-  bclose(b);
+  destroy_huff_tree(root);
   free(freqs);
+  free(leaves);
+  free(table);
   fclose(fp);
+  bclose(b);
   return bytes_encoded;
 }
 
@@ -84,6 +87,11 @@ size_t decode(const char *in, const char *out) {
     }
   }
 
+  destroy_huff_tree(root);
+  free(freqs);
+  free(leaves);
+  bclose(b);
+  fclose(fp_out);
   return bytes_decoded;
 }
 
@@ -146,7 +154,17 @@ huff_node_t *build_huff_tree(uint64_t * freqs, huff_node_t *** leaves) {
 
   if (leaves)
     *leaves = leafs;
+
+  pqueue_destroy(&pq);
   return new;
+}
+
+void destroy_huff_tree(huff_node_t * node) {
+  if (node) {
+    destroy_huff_tree(node->left);
+    destroy_huff_tree(node->right);
+    free(node);
+  }
 }
 
 huff_code_t *build_huff_table(huff_node_t ** leaves) {

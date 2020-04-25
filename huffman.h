@@ -42,6 +42,9 @@ uint64_t *count_freqs(FILE *);
 // build the huffman tree
 huff_node_t *build_huff_tree(uint64_t *, huff_node_t ***);
 
+// free the contents of the tree 
+void destroy_huff_tree(huff_node_t *);
+
 // bottom-up traversal to generate code 
 uint64_t get_huff_code(huff_node_t *, uint32_t *);
 
