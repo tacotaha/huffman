@@ -5,15 +5,15 @@
 #include "huffman.h"
 #include "utils/pqueue.h"
 #include "utils/bitio.h"
+#include <assert.h>
 
-int encode(const char *in, const char *out) {
+size_t encode(const char *in, const char *out) {
   int c;
-  uint8_t sf;
-  huff_code_t code;
   bitio_t *b;
+  huff_code_t code;
+  huff_node_t **leaves;
+  size_t bytes_encoded = 0;
   FILE *fout, *fp = fopen(in, "rb");
-  pqueue_t *pq = pqueue_init();
-  huff_node_t *n, *leaves[NUM_SYMBS];
 
   if (!fp) {
     fprintf(stderr, "Failed to open file!\n");
@@ -22,7 +22,97 @@ int encode(const char *in, const char *out) {
   // build the frequency table
   uint64_t *freqs = count_freqs(fp);
 
-  // enqueue all leaf nodes 
+  // build the huffman tree
+  build_huff_tree(freqs, &leaves);
+
+  rewind(fp);
+
+  huff_code_t *table = build_huff_table(leaves);
+
+  // dump the frequency table 
+  fout = fopen(out, "wb");
+  write_header(fout, freqs);
+
+  // append the encoded data 
+  b = bopen_f(fout, WRITE);
+  while ((c = fgetc(fp)) != EOF) {
+    assert(c < NUM_SYMBS);
+    code = table[c];
+    for (int i = 0; i < code.len; ++i)
+      bwrite(b, (code.code >> (code.len - i - 1)) & 1);
+    ++bytes_encoded;
+  }
+
+  bclose(b);
+  free(freqs);
+  fclose(fp);
+  return bytes_encoded;
+}
+
+size_t decode(const char *in, const char *out) {
+  char bit;
+  bitio_t *b;
+  uint64_t *freqs;
+  FILE *fp_in, *fp_out;
+  size_t bytes_decoded = 0;
+  huff_node_t *root, *node, **leaves;
+
+  fp_in = fopen(in, "rb");
+  if (!fp_in)
+    return -1;
+
+  fp_out = fopen(out, "w");
+  if (!fp_out) {
+    fclose(fp_in);
+    return -2;
+  }
+
+  freqs = read_header(fp_in);
+  root = build_huff_tree(freqs, &leaves);
+
+  b = bopen_f(fp_in, READ);
+
+  node = root;
+  while ((bit = bread(b)) != BEOF) {
+    node = bit ? node->right : node->left;
+
+    // reached a symbol
+    if (node->left == NULL && node->right == NULL) {
+      fwrite(&node->symb, 1, 1, fp_out);
+      node = root;
+      ++bytes_decoded;
+    }
+  }
+
+  return bytes_decoded;
+}
+
+uint64_t *count_freqs(FILE * fp) {
+  int c;
+  uint64_t *freqs = malloc(NUM_SYMBS * sizeof(uint64_t));
+
+  if (freqs) {
+    memset(freqs, 0, NUM_SYMBS * sizeof(uint64_t));
+    while ((c = fgetc(fp)) != EOF)
+      ++freqs[c];
+  }
+
+  return freqs;
+}
+
+huff_node_t *build_huff_tree(uint64_t * freqs, huff_node_t *** leaves) {
+  huff_node_t **leafs, *n, *left, *right, *new;
+
+  pqueue_t *pq = pqueue_init();
+  if (!pq)
+    return NULL;
+
+  leafs = malloc(sizeof(huff_node_t) * NUM_SYMBS);
+  if (!leaves) {
+    pqueue_destroy(&pq);
+    return NULL;
+  }
+  // enqueue leaf nodes 
   for (int i = 0; i < NUM_SYMBS; ++i) {
     if (!freqs[i])
       n = NULL;
@@ -33,83 +123,29 @@ int encode(const char *in, const char *out) {
       n->left = n->right = NULL;
       pqueue_insert(pq, n->freq, n);
     }
-    leaves[i] = n;
+    leafs[i] = n;
   }
 
-  // build the huffman tree
-  build_huff_tree(pq);
+  while (pq->size > 1) {
+    left = pqueue_front(pq);
+    pqueue_pop(pq);
 
-  rewind(fp);
+    right = pqueue_front(pq);
+    pqueue_pop(pq);
 
-  huff_code_t *table = build_huff_table(leaves);
+    new = new_huff_node();
+    new->freq = left->freq + right->freq;
+    new->symb = INTERNAL_NODE;
+    new->left = left;
+    new->right = right;
+    new->parent = NULL;
 
-  // dump the huffman table 
-  fout = fopen(out, "wb");
-  write_header(fout, table);
-  fclose(fout);
-
-  // append the encoded data 
-  b = bopen(out, APPEND);
-  while ((c = fgetc(fp)) != EOF) {
-    code = table[c];
-    for (int i = 0; i < code.len; ++i) {
-      sf = code.len - i - 1;
-      bwrite(b, (code.code & (1 << sf)) >> sf);
-    }
-  }
-  bclose(b);
-
-  free(freqs);
-  fclose(fp);
-  return 0;
-}
-
-int decode(const char *file) {
-  uint32_t tab_len;
-  huff_code_t *table = NULL;
-  FILE *fp = fopen(file, "rb");
-  if (fp) {
-    table = read_header(fp, &tab_len);
-    fclose(fp);
-  }
-  return 0;
-}
-
-uint64_t *count_freqs(FILE * fp) {
-  char c;
-  uint64_t *freqs = malloc(NUM_SYMBS * sizeof(uint64_t));
-
-  if (freqs) {
-    memset(freqs, 0, NUM_SYMBS * sizeof(uint64_t));
-    while ((c = fgetc(fp)) != EOF)
-      ++freqs[(int) c];
+    left->parent = right->parent = new;
+    pqueue_insert(pq, new->freq, new);
   }
 
-  return freqs;
-}
-
-huff_node_t *build_huff_tree(pqueue_t * pq) {
-  huff_node_t *left, *right, *new = NULL;
-
-  if (pq)
-    while (pq->size > 1) {
-      left = pqueue_front(pq);
-      pqueue_pop(pq);
-
-      right = pqueue_front(pq);
-      pqueue_pop(pq);
-
-      new = new_huff_node();
-      new->freq = left->freq + right->freq;
-      new->symb = INTERNAL_NODE;
-      new->left = left;
-      new->right = right;
-      new->parent = NULL;
-
-      left->parent = right->parent = new;
-      pqueue_insert(pq, new->freq, new);
-    }
-
+  if (leaves)
+    *leaves = leafs;
   return new;
 }
 
@@ -139,47 +175,37 @@ uint64_t get_huff_code(huff_node_t * leaf, uint32_t * len) {
   return code;
 }
 
-void write_header(FILE * fp, huff_code_t * table) {
+void write_header(FILE * fp, uint64_t * freqs) {
   /*
    * header format:
    * <num symbols (2 bytes)>
-   * <length (4 bytes)><code (length bits)>
+   * <symbol (2 bytes)><frequency (8 bytes)>
    */
 
   uint16_t uniq_symbs = 0;
   for (int i = 0; i < NUM_SYMBS; ++i)
-    uniq_symbs += (table[i].len > 0);
+    uniq_symbs += (freqs[i] != 0);
 
   fwrite(&uniq_symbs, 1, sizeof(uint16_t), fp);
 
   for (uint16_t i = 0; i < NUM_SYMBS; ++i)
-    if (table[i].len) {
-      fwrite(&table[i].len, 1, sizeof(uint32_t), fp);
-      fwrite(&table[i].code, 1, sizeof(uint64_t), fp);
+    if (freqs[i]) {
+      fwrite(&i, 1, sizeof(uint16_t), fp);
+      fwrite(freqs + i, 1, sizeof(uint64_t), fp);
     }
 }
 
-huff_code_t *read_header(FILE * fp, uint32_t * len) {
-  uint16_t uniq_symbs = 0;
+uint64_t *read_header(FILE * fp) {
+  uint16_t uniq_symbs, symb;
   fread(&uniq_symbs, 1, sizeof(uint16_t), fp);
 
-  huff_code_t *table = malloc(sizeof(huff_code_t) * uniq_symbs);
-  if (table) {
+  uint64_t *freqs = malloc(sizeof(uint64_t) * NUM_SYMBS);
+  if (freqs) {
+    memset(freqs, 0, sizeof(uint64_t) * NUM_SYMBS);
     for (int i = 0; i < uniq_symbs; ++i) {
-      fread(&table[i].len, 1, sizeof(uint32_t), fp);
-      fread(&table[i].code, 1, sizeof(uint64_t), fp);
+      fread(&symb, 1, sizeof(uint16_t), fp);
+      fread(freqs + symb, 1, sizeof(uint64_t), fp);
     }
   }
-  if (len)
-    *len = uniq_symbs;
-  return table;
-}
-
-void inorder_traverse(huff_node_t * root, huff_node_func fn) {
-  if (root) {
-    inorder_traverse(root->left, fn);
-    if (root->symb != INTERNAL_NODE)
-      fn(root);
-    inorder_traverse(root->right, fn);
-  }
+  return freqs;
 }

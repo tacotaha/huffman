@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Wall -Werror -g
 OBJECTS = bitio.o pqueue.o huffman.o main.o
 
 huffman: $(OBJECTS) 

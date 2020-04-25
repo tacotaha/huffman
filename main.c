@@ -7,9 +7,13 @@
 
 int main(int argc, char **argv) {
 
-  encode("../huckfinn.txt", "out.bin");
+  int bytes_encoded, bytes_decoded;
 
-  decode("out.bin");
+  bytes_encoded = encode("../huckfinn.txt", "out.bin");
+
+  bytes_decoded = decode("out.bin", "huckfinn.txt");
+
+  assert(bytes_encoded == bytes_decoded);
 
   return 0;
 }
